@@ -2,10 +2,10 @@ import { spawn as nodeSpawn } from 'node:child_process';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { mkdir as fsMkdir, rm as fsRm } from 'node:fs/promises';
-import type { VideoSource } from './video-source';
-import type { VideoInfo } from '../core/types';
-import type { AppConfig } from '../core/config';
-import { parseYtDlpProgress, classifyYtDlpValidate } from '../core/progress-parser';
+import type { VideoSource } from './video-source.js';
+import type { VideoInfo } from '../core/types.js';
+import type { AppConfig } from '../core/config.js';
+import { parseYtDlpProgress, classifyYtDlpValidate } from '../core/progress-parser.js';
 
 type SpawnFn = typeof nodeSpawn;
 

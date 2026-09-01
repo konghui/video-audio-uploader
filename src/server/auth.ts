@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { AppConfig } from '../core/config';
+import type { AppConfig } from '../core/config.js';
 
 export function verifyLogin(cfg: AppConfig, user: string, pass: string): boolean {
   return user === cfg.auth.username && pass === cfg.auth.password;

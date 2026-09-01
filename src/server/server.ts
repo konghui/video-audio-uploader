@@ -1,12 +1,12 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import cookie from '@fastify/cookie';
 import websocket from '@fastify/websocket';
-import type { AppConfig } from '../core/config';
-import type { SessionStore } from './auth';
-import { verifyLogin } from './auth';
-import type { TaskRunner } from '../core/task-runner';
-import type { ProgressEvent, VideoInfo } from '../core/types';
-import { Broadcaster } from './ws';
+import type { AppConfig } from '../core/config.js';
+import type { SessionStore } from './auth.js';
+import { verifyLogin } from './auth.js';
+import type { TaskRunner } from '../core/task-runner.js';
+import type { ProgressEvent, VideoInfo } from '../core/types.js';
+import { Broadcaster } from './ws.js';
 
 interface Deps {
   runner: TaskRunner;

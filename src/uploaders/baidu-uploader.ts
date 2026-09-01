@@ -1,7 +1,7 @@
 import { spawn as nodeSpawn } from 'node:child_process';
-import type { CloudUploader } from './cloud-uploader';
-import type { AppConfig } from '../core/config';
-import { parseBaiduProgress } from '../core/progress-parser';
+import type { CloudUploader } from './cloud-uploader.js';
+import type { AppConfig } from '../core/config.js';
+import { parseBaiduProgress } from '../core/progress-parser.js';
 
 type SpawnFn = typeof nodeSpawn;
 

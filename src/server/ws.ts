@@ -1,5 +1,5 @@
 import type { WebSocket } from 'ws';
-import type { ProgressEvent } from '../core/types';
+import type { ProgressEvent } from '../core/types.js';
 
 export class Broadcaster {
   private clients = new Set<WebSocket>();

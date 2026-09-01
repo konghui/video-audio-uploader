@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { rm as fsRm } from 'node:fs/promises';
-import type { VideoSource } from '../sources/video-source';
-import type { CloudUploader } from '../uploaders/cloud-uploader';
-import type { ProgressEvent, TaskState, Stage, RunStatus } from './types';
+import type { VideoSource } from '../sources/video-source.js';
+import type { CloudUploader } from '../uploaders/cloud-uploader.js';
+import type { ProgressEvent, TaskState, Stage, RunStatus } from './types.js';
 
 interface Deps {
   rm?: (path: string) => Promise<void>;
