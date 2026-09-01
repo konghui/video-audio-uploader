@@ -60,8 +60,9 @@ export class YtDlpSource implements VideoSource {
       p.stdout?.on('data', (d) => handle(d.toString()));
       p.stderr?.on('data', (d) => (err += d.toString()));
       p.on('close', (code) => {
-        if (code === 0 && filePath) resolve({ filePath, title });
-        else reject(new Error(err || `yt-dlp exited with code ${code}`));
+        if (code !== 0) return reject(new Error(err || `yt-dlp exited with code ${code}`));
+        if (!filePath) return reject(new Error('Download succeeded but no output file path found in yt-dlp output'));
+        resolve({ filePath, title });
       });
     });
   }

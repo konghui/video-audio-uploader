@@ -51,6 +51,18 @@ describe('YtDlpSource.download', () => {
     expect(seen).toContain(50);
     expect(res.filePath).toContain('.mp3');
   });
+
+  it('rejects when exit 0 but no Destination line', async () => {
+    const spawnFn = vi.fn(() => fakeProc({ stdout: '[download]  100.0% of 1MiB\n[download] Finished', code: 0 }));
+    const src = new YtDlpSource(cfg, spawnFn as any);
+    await expect(src.download('http://site/v', () => {})).rejects.toThrow(/no output file path/i);
+  });
+
+  it('rejects on download failure', async () => {
+    const spawnFn = vi.fn(() => fakeProc({ stderr: 'ERROR: Video unavailable', code: 1 }));
+    const src = new YtDlpSource(cfg, spawnFn as any);
+    await expect(src.download('http://x', () => {})).rejects.toThrow(/Video unavailable/);
+  });
 });
 
 describe('selectSource', () => {
