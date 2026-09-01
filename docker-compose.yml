@@ -1,0 +1,9 @@
+services:
+  audio-uploader:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config.yaml:/config/config.yaml:ro
+      - ./data/tmp:/data/tmp
+    restart: unless-stopped
