@@ -13,8 +13,16 @@ export class BaiduUploader implements CloudUploader {
       const b = this.cfg.cloud.baidu;
       const p = this.spawnFn(b.binary, ['login', `-bduss=${b.bduss}`]);
       let err = '';
+      let settled = false;
       p.stderr?.on('data', (d) => (err += d.toString()));
+      p.on('error', (e) => {
+        if (settled) return;
+        settled = true;
+        reject(e);
+      });
       p.on('close', (code) => {
+        if (settled) return;
+        settled = true;
         if (code === 0) resolve();
         else reject(new Error(err || `BaiduPCS-Go login exited with code ${code}`));
       });
@@ -27,14 +35,28 @@ export class BaiduUploader implements CloudUploader {
       const b = this.cfg.cloud.baidu;
       const p = this.spawnFn(b.binary, ['upload', localPath, b.targetDir]);
       let err = '';
+      let buf = '';
+      let settled = false;
+      const parseLine = (line: string) => {
+        const pct = parseBaiduProgress(line);
+        if (pct !== null) onProgress(pct, line);
+      };
       p.stdout?.on('data', (d) => {
-        for (const line of d.toString().split(/\r?\n/)) {
-          const pct = parseBaiduProgress(line);
-          if (pct !== null) onProgress(pct, line);
-        }
+        buf += d.toString();
+        const parts = buf.split('\n');
+        buf = parts.pop() ?? '';
+        for (const part of parts) parseLine(part.replace(/\r$/, ''));
       });
       p.stderr?.on('data', (d) => (err += d.toString()));
+      p.on('error', (e) => {
+        if (settled) return;
+        settled = true;
+        reject(e);
+      });
       p.on('close', (code) => {
+        if (settled) return;
+        settled = true;
+        if (buf) parseLine(buf.replace(/\r$/, ''));
         if (code === 0) resolve();
         else reject(new Error(err || `BaiduPCS-Go exited with code ${code}`));
       });

@@ -23,6 +23,14 @@ function fakeProc(opts: { stdout?: string; stderr?: string; code: number }) {
   return proc;
 }
 
+function errorProc(err: Error) {
+  const proc: any = new EventEmitter();
+  proc.stdout = new EventEmitter();
+  proc.stderr = new EventEmitter();
+  setImmediate(() => proc.emit('error', err));
+  return proc;
+}
+
 describe('BaiduUploader.upload', () => {
   it('reports progress and resolves on success', async () => {
     const procs = [
@@ -48,6 +56,25 @@ describe('BaiduUploader.upload', () => {
     await expect(up.upload('/tmp/x.mp3', () => {})).rejects.toThrow(/bad bduss/);
     // Upload spawn should never be called (only login was called)
     expect(spawnFn).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects on spawn error during login and does not attempt upload', async () => {
+    const spawnFn = vi.fn(() => errorProc(new Error('spawn BaiduPCS-Go EACCES')));
+    const up = new BaiduUploader(cfg, spawnFn as any);
+    await expect(up.upload('/tmp/x.mp3', () => {})).rejects.toThrow(/EACCES/);
+    expect(spawnFn).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects on spawn error during upload after successful login', async () => {
+    const procs = [
+      fakeProc({ code: 0 }), // login succeeds
+      errorProc(new Error('spawn BaiduPCS-Go EAGAIN')), // upload spawn error
+    ];
+    let callIdx = 0;
+    const spawnFn = vi.fn(() => procs[callIdx++]);
+    const up = new BaiduUploader(cfg, spawnFn as any);
+    await expect(up.upload('/tmp/x.mp3', () => {})).rejects.toThrow(/EAGAIN/);
+    expect(spawnFn).toHaveBeenCalledTimes(2);
   });
 
   it('rejects when upload fails after successful login', async () => {
