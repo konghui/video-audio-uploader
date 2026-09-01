@@ -6,4 +6,5 @@ services:
     volumes:
       - ./config.yaml:/config/config.yaml:ro
       - ./data/tmp:/data/tmp
+      - ./data/baidupcs:/root/.config/BaiduPCS-Go
     restart: unless-stopped

@@ -8,7 +8,21 @@ type SpawnFn = typeof nodeSpawn;
 export class BaiduUploader implements CloudUploader {
   constructor(private cfg: AppConfig, private spawnFn: SpawnFn = nodeSpawn) {}
 
-  upload(localPath: string, onProgress: (pct: number, msg: string) => void): Promise<void> {
+  private login(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const b = this.cfg.cloud.baidu;
+      const p = this.spawnFn(b.binary, ['login', `-bduss=${b.bduss}`]);
+      let err = '';
+      p.stderr?.on('data', (d) => (err += d.toString()));
+      p.on('close', (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(err || `BaiduPCS-Go login exited with code ${code}`));
+      });
+    });
+  }
+
+  async upload(localPath: string, onProgress: (pct: number, msg: string) => void): Promise<void> {
+    await this.login();
     return new Promise((resolve, reject) => {
       const b = this.cfg.cloud.baidu;
       const p = this.spawnFn(b.binary, ['upload', localPath, b.targetDir]);
