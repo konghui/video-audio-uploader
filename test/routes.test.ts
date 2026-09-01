@@ -42,6 +42,20 @@ describe('routes', () => {
     expect(res.json().supported).toBe(true);
   });
 
+  it('rejects validate with invalid url type', async () => {
+    const { app } = make();
+    const c = await login(app);
+    const res = await app.inject({ method: 'POST', url: '/api/validate', payload: { url: 123 }, cookies: { sid: c.value } });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('rejects tasks with missing url', async () => {
+    const { app } = make();
+    const c = await login(app);
+    const res = await app.inject({ method: 'POST', url: '/api/tasks', payload: {}, cookies: { sid: c.value } });
+    expect(res.statusCode).toBe(400);
+  });
+
   it('returns 409 when busy', async () => {
     const sessions = new SessionStore();
     const source: any = { validate: vi.fn(), download: vi.fn(async () => ({ filePath: '/tmp/a.mp3', title: 'a' })) };

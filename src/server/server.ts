@@ -49,13 +49,15 @@ export function buildServer(cfg: AppConfig, deps: Deps): FastifyInstance {
     if (!authed(req)) return reply.code(401).send({ error: 'unauthorized' });
   });
 
-  app.post('/api/validate', async (req) => {
+  app.post('/api/validate', async (req, reply) => {
     const { url } = (req.body as any) ?? {};
+    if (typeof url !== 'string' || url === '') return reply.code(400).send({ error: 'invalid url' });
     return deps.validateUrl(url);
   });
 
   app.post('/api/tasks', async (req, reply) => {
     const { url } = (req.body as any) ?? {};
+    if (typeof url !== 'string' || url === '') return reply.code(400).send({ error: 'invalid url' });
     try {
       const { taskId } = deps.runner.start(url, (e: ProgressEvent) => bc.send(e));
       return { taskId };

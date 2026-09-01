@@ -18,6 +18,9 @@ function binExists(bin: string): boolean {
 
 const cfgPath = process.env.CONFIG_PATH ?? 'config.yaml';
 const cfg = loadConfig(readFileSync(cfgPath, 'utf8'));
+if (cfg.auth.password === 'change-me' || cfg.server.sessionSecret === 'change-me') {
+  console.warn('WARNING: default credentials/sessionSecret in config.yaml — change them before exposing the service.');
+}
 const missing = checkBinaries(cfg, binExists);
 if (missing.length) { console.error(`Missing required binaries: ${missing.join(', ')}`); process.exit(1); }
 mkdirSync(cfg.paths.tempDir, { recursive: true });
