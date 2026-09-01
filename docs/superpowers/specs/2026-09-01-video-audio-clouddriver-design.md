@@ -58,7 +58,8 @@
 
 ```
 浏览器 ──登录 POST /api/login {user,pass}────────► 校验→下发签名 cookie
-浏览器 ──POST /api/tasks {url}──────────────────► TaskRunner 启动,返回 {taskId}
+浏览器 ──POST /api/validate {url}──────────────► yt-dlp 探测→{supported,title,duration,reason}
+浏览器 ──POST /api/tasks {url}──────────────────► (仅校验通过)TaskRunner 启动,返回 {taskId}
 浏览器 ──WebSocket /ws (带 cookie)──────────────► 订阅进度
 后端  ──推送 {stage, percent, message, status}─► 实时更新 UI
 ```
@@ -88,6 +89,7 @@
 |------|------|------|
 | POST | `/api/login` | 登录,成功下发签名 cookie |
 | POST | `/api/logout` | 注销 |
+| POST | `/api/validate` | 探测链接是否支持,返回 `{supported, title?, uploader?, duration?, reason?}`(不下载) |
 | POST | `/api/tasks` | 提交链接,启动任务;忙碌时返回 409 |
 | GET  | `/api/tasks/current` | 查询当前任务状态(页面刷新后恢复视图) |
 | WS   | `/ws` | 订阅实时进度 |
@@ -126,7 +128,8 @@ cloud:
 ## 7. 前端(Vue 3 + Vite + Tailwind)
 
 - 视图:登录页 → 主页面。
-- 主页面:链接输入框 + 提交按钮 + 分阶段进度条 + 实时日志区域;显示解析到的标题。
+- 主页面:链接输入框 + **校验状态**(✅ 支持/❌ 不支持 + 标题/时长预览) + 提交按钮 + 分阶段进度条 + 实时日志区域。
+- 提交按钮仅在**校验通过**后可用:粘贴链接后点「校验」或自动调 `/api/validate`,不支持则红色提示原因。
 - 现代简洁清爽风格,响应式。
 - 页面刷新后通过 `GET /api/tasks/current` 恢复当前任务视图。
 
@@ -140,6 +143,7 @@ cloud:
 
 - **单元测试(重点)**:
   - `ProgressParser`:喂 yt-dlp / BaiduPCS-Go 样例输出 → 断言阶段与百分比。
+  - `YtDlpSource.validate`:支持/不支持/非法 URL 三种探测输出解析。
   - `Config`:加载与字段校验。
   - `AuthMiddleware`:登录/未登录访问保护。
 - **编排测试**:`TaskRunner` 用 mock 的 `VideoSource`/`CloudUploader` 跑全流程,验证阶段顺序、进度汇总、错误分支、忙碌拒绝。
