@@ -1,0 +1,19 @@
+server:
+  port: 8080
+  sessionSecret: "change-me"
+auth:
+  username: "admin"
+  password: "change-me"
+paths:
+  tempDir: "/data/tmp"
+  ytdlp: "yt-dlp"
+  ffmpeg: "ffmpeg"
+audio:
+  format: "mp3"
+  quality: "0"
+cloud:
+  provider: "baidu"
+  baidu:
+    binary: "BaiduPCS-Go"
+    bduss: "change-me"
+    targetDir: "/我的音频"
