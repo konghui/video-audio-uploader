@@ -31,7 +31,7 @@ export class TaskRunner {
     if (this.isBusy()) throw new Error('busy');
     const taskId = this.idGen();
     this.current = { taskId, url, stage: 'resolving', percent: 0, status: 'running' };
-    void this.run(taskId, url, emit);
+    void this.run(url, emit);
     return { taskId };
   }
 
@@ -43,7 +43,7 @@ export class TaskRunner {
     emit({ taskId: c.taskId, stage, percent, title: c.title, message, status });
   }
 
-  private async run(taskId: string, url: string, emit: (e: ProgressEvent) => void) {
+  private async run(url: string, emit: (e: ProgressEvent) => void) {
     let filePath = '';
     try {
       this.update('resolving', 0, 'resolving', 'running', emit);

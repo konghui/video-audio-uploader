@@ -54,4 +54,16 @@ describe('TaskRunner', () => {
     expect(events.at(-1)!.status).toBe('failed');
     expect(events.at(-1)!.stage).toBe('error');
   });
+
+  it('cleans up temp file when upload fails', async () => {
+    const rm = vi.fn(async () => {});
+    const badUploader = makeUploader({ upload: vi.fn(async () => { throw new Error('upload boom'); }) });
+    const runner = new TaskRunner(makeSource() as any, badUploader as any, { rm, idGen: () => 't1' });
+    const events: ProgressEvent[] = [];
+    runner.start('http://v', (e) => events.push(e));
+    await flush(); await flush(); await flush();
+    expect(events.at(-1)!.status).toBe('failed');
+    expect(events.at(-1)!.stage).toBe('error');
+    expect(rm).toHaveBeenCalledWith('/tmp/Song.mp3');
+  });
 });
