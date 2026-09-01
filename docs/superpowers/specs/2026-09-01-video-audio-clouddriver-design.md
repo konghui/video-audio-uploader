@@ -5,7 +5,9 @@
 
 ## 1. 目标与范围
 
-一个**本地单用户** Web 服务。启动后浏览器打开页面,登录后粘贴视频链接(当前主要为 Bilibili),服务提取该视频的音频、转码为**最高质量 mp3**,并上传到指定云盘目录(当前为百度网盘),页面实时展示整个操作进度。
+一个**本地单用户** Web 服务。启动后浏览器打开页面,登录后粘贴视频链接(Bilibili、YouTube 等),服务提取该视频的音频、转码为**最高质量 mp3**,并上传到指定云盘目录(当前为百度网盘),页面实时展示整个操作进度。
+
+视频网站**自动识别**:用户无需指定来源,系统根据 URL 交给默认 `YtDlpSource` 处理,yt-dlp 能识别的所有网站(Bilibili、YouTube 及上千站点)开箱即用,无需为每个网站写代码。
 
 **明确不做(YAGNI)**:
 - 无数据库(配置文件配置一切,进度存内存)。
@@ -14,7 +16,7 @@
 - 不做视频保存,只保留音频 mp3(上传后删除本地文件)。
 
 **扩展点(必须抽象好)**:
-- 视频来源:`VideoSource` 接口,默认基于 yt-dlp,自动覆盖 Bilibili 及大量网站;将来可加特殊网站实现。
+- 视频来源:`VideoSource` 接口,默认实现 `YtDlpSource` 自动覆盖 yt-dlp 支持的全部网站(Bilibili、YouTube 等);仅当某网站 yt-dlp 无法处理时才需另写实现。
 - 云盘:`CloudUploader` 接口,默认百度网盘;将来可加其他云盘。
 
 ## 2. 技术栈
@@ -45,7 +47,7 @@
 | `WebServer` | 提供页面、REST API、WebSocket 推送 | Fastify |
 | `AuthMiddleware` | 校验登录 session(签名 cookie),保护所有 API 与 WS | 配置中的用户名/密码 |
 | `TaskRunner` | 编排 4 个阶段,汇总进度/错误,保证单活动任务 | VideoSource / CloudUploader |
-| `VideoSource`(接口) | 解析+下载音频,产出本地 mp3 | 默认实现 `YtDlpSource`(spawn yt-dlp) |
+| `VideoSource`(接口) | 解析+下载音频,产出本地 mp3;按 URL 自动选择实现 | 默认实现 `YtDlpSource`(spawn yt-dlp,覆盖全部 yt-dlp 支持站点) |
 | `CloudUploader`(接口) | 上传文件到云盘目录 | 默认实现 `BaiduUploader`(spawn BaiduPCS-Go) |
 | `ProgressParser` | 解析子进程输出 → 阶段/百分比(纯函数) | 无 |
 | `Config` | 读取并校验配置文件 | yaml |
