@@ -44,7 +44,8 @@ export function buildServer(cfg: AppConfig, deps: Deps): FastifyInstance {
   });
 
   app.addHook('preHandler', async (req, reply) => {
-    if (req.url === '/api/login' || !req.url.startsWith('/api/')) return;
+    const path = req.url.split('?')[0];
+    if (path === '/api/login' || !path.startsWith('/api/')) return;
     if (!authed(req)) return reply.code(401).send({ error: 'unauthorized' });
   });
 
@@ -68,7 +69,7 @@ export function buildServer(cfg: AppConfig, deps: Deps): FastifyInstance {
 
   app.register(async (scoped) => {
     scoped.get('/ws', { websocket: true }, (socket, req) => {
-      if (!authed(req)) { socket.close(); return; }
+      if (!authed(req)) { socket.close(1008, 'unauthorized'); return; }
       bc.add(socket);
     });
   });

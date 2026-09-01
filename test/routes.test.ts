@@ -43,12 +43,19 @@ describe('routes', () => {
   });
 
   it('returns 409 when busy', async () => {
-    const { app } = make();
+    const sessions = new SessionStore();
+    const source: any = { validate: vi.fn(), download: vi.fn(async () => ({ filePath: '/tmp/a.mp3', title: 'a' })) };
+    const uploader: any = { upload: vi.fn(() => new Promise(() => {})) }; // never resolves
+    const runner = new TaskRunner(source, uploader, { rm: async () => {}, idGen: () => 't1' });
+    const validateUrl = vi.fn(async (url: string) => ({ supported: true, title: 'a' }));
+    const app = buildServer(cfg, { runner, sessions, validateUrl });
     const c = await login(app);
     const cookies = { sid: c.value };
     const first = await app.inject({ method: 'POST', url: '/api/tasks', payload: { url: 'http://v' }, cookies });
     expect(first.statusCode).toBe(200);
+    // Give first task a tick to enter running state
+    await new Promise(resolve => setTimeout(resolve, 0));
     const second = await app.inject({ method: 'POST', url: '/api/tasks', payload: { url: 'http://v2' }, cookies });
-    expect([200, 409]).toContain(second.statusCode);
+    expect(second.statusCode).toBe(409);
   });
 });
