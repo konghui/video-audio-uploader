@@ -30,8 +30,7 @@ describe('BaiduUploader.upload', () => {
     await up.upload('/tmp/Song.mp3', (p) => seen.push(p));
     expect(seen).toContain(33);
     const args = (spawnFn.mock.calls[0] as any[])[1];
-    expect(args).toContain('/audio');
-    expect(args).toContain('/tmp/Song.mp3');
+    expect(args).toEqual(['upload', '/tmp/Song.mp3', '/audio']);
   });
 
   it('rejects on non-zero exit', async () => {
@@ -44,5 +43,16 @@ describe('BaiduUploader.upload', () => {
 describe('selectUploader', () => {
   it('returns BaiduUploader for baidu provider', () => {
     expect(selectUploader(cfg)).toBeInstanceOf(BaiduUploader);
+  });
+
+  it('throws on unknown provider', () => {
+    const badCfg = loadConfig(`
+server: { port: 1, sessionSecret: s }
+auth: { username: a, password: p }
+paths: { tempDir: /tmp, ytdlp: yt-dlp, ffmpeg: ffmpeg }
+audio: { format: mp3, quality: "0" }
+cloud: { provider: dropbox, baidu: { binary: b, bduss: x, targetDir: /a } }
+`);
+    expect(() => selectUploader(badCfg)).toThrow('Unsupported cloud provider: dropbox');
   });
 });
