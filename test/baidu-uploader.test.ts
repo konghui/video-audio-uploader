@@ -120,6 +120,20 @@ describe('BaiduUploader.upload', () => {
     await expect(up.upload('/tmp/x.mp3', () => {})).rejects.toThrow(/上传结果未知/);
   });
 
+  it('resolves when target file already exists and upload is skipped (exit 0)', async () => {
+    const spawnFn = queue([
+      fakeProc({ code: 0 }), // login
+      fakeProc({ code: 0 }), // mkdir
+      fakeProc({
+        stdout:
+          '[1] 目标文件, /我的音频/Me at the zoo.mp3, 已存在, 跳过...\n上传结束, 时间: 1.819s, 总大小: 0B',
+        code: 0,
+      }),
+    ]);
+    const up = new BaiduUploader(cfg, spawnFn as any);
+    await expect(up.upload('/tmp/Me at the zoo.mp3', () => {})).resolves.toBeUndefined();
+  });
+
   it('rejects when login fails and does not attempt mkdir/upload', async () => {
     const spawnFn = queue([fakeProc({ stderr: 'bad bduss', code: 1 })]);
     const up = new BaiduUploader(cfg, spawnFn as any);

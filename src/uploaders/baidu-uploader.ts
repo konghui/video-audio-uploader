@@ -100,7 +100,12 @@ export class BaiduUploader implements CloudUploader {
           reject(new Error(reason));
           return;
         }
-        const isSuccess = out.includes('上传文件成功') || out.includes('上传成功');
+        // BaiduPCS-Go SKIPS (exit 0) when the target file already exists,
+        // printing e.g. "目标文件, /path, 已存在, 跳过...". The file IS on the
+        // netdisk, so this is effectively a success. The failure check above
+        // runs first, so a real failure marker still wins over this skip case.
+        const isSkippedExisting = /已存在[,，\s]*跳过/.test(out);
+        const isSuccess = out.includes('上传文件成功') || out.includes('上传成功') || isSkippedExisting;
         if (isSuccess) {
           resolve();
           return;
