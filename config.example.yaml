@@ -16,4 +16,8 @@ cloud:
   baidu:
     binary: "BaiduPCS-Go"
     bduss: "change-me"
+    # STOKEN (and optionally PTOKEN) come from pan.baidu.com cookies and are
+    # REQUIRED for uploads. BDUSS alone fails with "代码: -6, 消息: 请重新登录".
+    stoken: "change-me"
+    # ptoken: "change-me"
     targetDir: "/我的音频"

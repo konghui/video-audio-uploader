@@ -5,7 +5,10 @@ export interface AppConfig {
   auth: { username: string; password: string };
   paths: { tempDir: string; ytdlp: string; ffmpeg: string };
   audio: { format: string; quality: string };
-  cloud: { provider: string; baidu: { binary: string; bduss: string; targetDir: string } };
+  cloud: {
+    provider: string;
+    baidu: { binary: string; bduss: string; stoken?: string; ptoken?: string; targetDir: string };
+  };
 }
 
 function req(obj: any, path: string): any {
@@ -32,6 +35,8 @@ export function loadConfig(text: string): AppConfig {
       baidu: {
         binary: String(req(raw, 'cloud.baidu.binary')),
         bduss: String(req(raw, 'cloud.baidu.bduss')),
+        stoken: String(raw?.cloud?.baidu?.stoken ?? ''),
+        ptoken: String(raw?.cloud?.baidu?.ptoken ?? ''),
         targetDir: String(req(raw, 'cloud.baidu.targetDir')),
       },
     },

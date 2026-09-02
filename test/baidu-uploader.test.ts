@@ -8,6 +8,14 @@ server: { port: 1, sessionSecret: s }
 auth: { username: a, password: p }
 paths: { tempDir: /tmp, ytdlp: yt-dlp, ffmpeg: ffmpeg }
 audio: { format: mp3, quality: "0" }
+cloud: { provider: baidu, baidu: { binary: BaiduPCS-Go, bduss: x, stoken: st0k, targetDir: /audio } }
+`);
+
+const cfgNoStoken = loadConfig(`
+server: { port: 1, sessionSecret: s }
+auth: { username: a, password: p }
+paths: { tempDir: /tmp, ytdlp: yt-dlp, ffmpeg: ffmpeg }
+audio: { format: mp3, quality: "0" }
 cloud: { provider: baidu, baidu: { binary: BaiduPCS-Go, bduss: x, targetDir: /audio } }
 `);
 
@@ -31,61 +39,110 @@ function errorProc(err: Error) {
   return proc;
 }
 
+// Per-call fake-proc queue: each spawn() returns the next queued proc.
+function queue(procs: any[]) {
+  let i = 0;
+  return vi.fn(() => procs[i++]);
+}
+
 describe('BaiduUploader.upload', () => {
-  it('reports progress and resolves on success', async () => {
-    const procs = [
-      fakeProc({ code: 0 }), // login succeeds
-      fakeProc({ stdout: '↑ 33.0% 1MB/3MB\n上传完成', code: 0 }), // upload succeeds
-    ];
-    let callIdx = 0;
-    const spawnFn = vi.fn(() => procs[callIdx++]);
+  it('reports progress and resolves on real success (login, mkdir, upload)', async () => {
+    const spawnFn = queue([
+      fakeProc({ code: 0 }), // login
+      fakeProc({ code: 0 }), // mkdir
+      fakeProc({
+        stdout:
+          '↑ 33.0% 1MB/3MB\n[1] 上传文件成功, 保存到网盘路径: /我的音频/probe.mp3\n上传结束, 时间: 4.896s, 总大小: 46B',
+        code: 0,
+      }), // upload
+    ]);
     const up = new BaiduUploader(cfg, spawnFn as any);
     const seen: number[] = [];
     await up.upload('/tmp/Song.mp3', (p) => seen.push(p));
     expect(seen).toContain(33);
-    // First spawn call is login
-    expect(spawnFn.mock.calls[0]?.[1]).toEqual(['login', '-bduss=x']);
-    // Second spawn call is upload
-    expect(spawnFn.mock.calls[1]?.[1]).toEqual(['upload', '/tmp/Song.mp3', '/audio']);
+    // login args start with login/-bduss and include -stoken
+    const loginArgs = spawnFn.mock.calls[0]?.[1] as string[];
+    expect(loginArgs[0]).toBe('login');
+    expect(loginArgs[1]).toBe('-bduss=x');
+    expect(loginArgs).toContain('-stoken=st0k');
+    // mkdir then upload
+    expect(spawnFn.mock.calls[1]?.[1]).toEqual(['mkdir', '/audio']);
+    expect(spawnFn.mock.calls[2]?.[1]).toEqual(['upload', '/tmp/Song.mp3', '/audio']);
   });
 
-  it('rejects when login fails and does not attempt upload', async () => {
-    const loginProc = fakeProc({ stderr: 'bad bduss', code: 1 });
-    const spawnFn = vi.fn(() => loginProc);
+  it('omits -stoken flag when stoken is absent', async () => {
+    const spawnFn = queue([
+      fakeProc({ code: 0 }),
+      fakeProc({ code: 0 }),
+      fakeProc({ stdout: '上传文件成功', code: 0 }),
+    ]);
+    const up = new BaiduUploader(cfgNoStoken, spawnFn as any);
+    await up.upload('/tmp/x.mp3', () => {});
+    const loginArgs = spawnFn.mock.calls[0]?.[1] as string[];
+    expect(loginArgs).toEqual(['login', '-bduss=x']);
+    expect(loginArgs.some((a) => a.startsWith('-stoken='))).toBe(false);
+  });
+
+  it('rejects (does NOT resolve) on false success: exit 0 but not-logged-in output', async () => {
+    const spawnFn = queue([
+      fakeProc({ code: 0 }), // login
+      fakeProc({ code: 0 }), // mkdir
+      fakeProc({
+        stdout:
+          '[1] 获取文件列表错误, 代码: -6, 消息: 请重新登录\n以下文件上传失败:\n上传失败文件数: 1',
+        code: 0,
+      }),
+    ]);
+    const up = new BaiduUploader(cfg, spawnFn as any);
+    await expect(up.upload('/tmp/x.mp3', () => {})).rejects.toThrow(/请重新登录/);
+  });
+
+  it('rejects on dir-missing failure: exit 0 with 代码 -9', async () => {
+    const spawnFn = queue([
+      fakeProc({ code: 0 }),
+      fakeProc({ code: 0 }),
+      fakeProc({
+        stdout: '代码: -9, 消息: 文件不存在\n以下文件上传失败:\n上传失败文件数: 1',
+        code: 0,
+      }),
+    ]);
+    const up = new BaiduUploader(cfg, spawnFn as any);
+    await expect(up.upload('/tmp/x.mp3', () => {})).rejects.toThrow(/文件不存在/);
+  });
+
+  it('rejects on ambiguous output: exit 0 with no success/failure markers', async () => {
+    const spawnFn = queue([
+      fakeProc({ code: 0 }),
+      fakeProc({ code: 0 }),
+      fakeProc({ stdout: '↑ 10.0% 1MB/3MB\nsome unrelated noise', code: 0 }),
+    ]);
+    const up = new BaiduUploader(cfg, spawnFn as any);
+    await expect(up.upload('/tmp/x.mp3', () => {})).rejects.toThrow(/上传结果未知/);
+  });
+
+  it('rejects when login fails and does not attempt mkdir/upload', async () => {
+    const spawnFn = queue([fakeProc({ stderr: 'bad bduss', code: 1 })]);
     const up = new BaiduUploader(cfg, spawnFn as any);
     await expect(up.upload('/tmp/x.mp3', () => {})).rejects.toThrow(/bad bduss/);
-    // Upload spawn should never be called (only login was called)
     expect(spawnFn).toHaveBeenCalledTimes(1);
   });
 
-  it('rejects on spawn error during login and does not attempt upload', async () => {
-    const spawnFn = vi.fn(() => errorProc(new Error('spawn BaiduPCS-Go EACCES')));
+  it('rejects on spawn error during login and does not attempt mkdir/upload', async () => {
+    const spawnFn = queue([errorProc(new Error('spawn BaiduPCS-Go EACCES'))]);
     const up = new BaiduUploader(cfg, spawnFn as any);
     await expect(up.upload('/tmp/x.mp3', () => {})).rejects.toThrow(/EACCES/);
     expect(spawnFn).toHaveBeenCalledTimes(1);
   });
 
-  it('rejects on spawn error during upload after successful login', async () => {
-    const procs = [
-      fakeProc({ code: 0 }), // login succeeds
+  it('rejects on spawn error during upload after successful login and mkdir', async () => {
+    const spawnFn = queue([
+      fakeProc({ code: 0 }), // login
+      fakeProc({ code: 0 }), // mkdir
       errorProc(new Error('spawn BaiduPCS-Go EAGAIN')), // upload spawn error
-    ];
-    let callIdx = 0;
-    const spawnFn = vi.fn(() => procs[callIdx++]);
+    ]);
     const up = new BaiduUploader(cfg, spawnFn as any);
     await expect(up.upload('/tmp/x.mp3', () => {})).rejects.toThrow(/EAGAIN/);
-    expect(spawnFn).toHaveBeenCalledTimes(2);
-  });
-
-  it('rejects when upload fails after successful login', async () => {
-    const procs = [
-      fakeProc({ code: 0 }), // login succeeds
-      fakeProc({ stdout: 'error', code: 1 }), // upload fails
-    ];
-    let callIdx = 0;
-    const spawnFn = vi.fn(() => procs[callIdx++]);
-    const up = new BaiduUploader(cfg, spawnFn as any);
-    await expect(up.upload('/tmp/x.mp3', () => {})).rejects.toThrow();
+    expect(spawnFn).toHaveBeenCalledTimes(3);
   });
 });
 

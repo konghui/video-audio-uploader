@@ -14,7 +14,7 @@ FROM node:20-bookworm-slim
 WORKDIR /app
 # 系统依赖:ffmpeg + python(yt-dlp)+ deno(yt-dlp 解 YouTube JS)+ curl/unzip
 # 二进制按架构选择(amd64 / arm64),否则在 Apple Silicon 等 arm64 上无法执行
-ARG BAIDUPCS_VERSION=v3.9.7
+ARG BAIDUPCS_VERSION=v4.0.2
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ffmpeg python3 curl ca-certificates unzip \
  && arch="$(dpkg --print-architecture)" \
