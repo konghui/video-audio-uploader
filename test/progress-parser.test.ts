@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseYtDlpProgress, parseBaiduProgress, classifyYtDlpValidate } from '../src/core/progress-parser';
+import { parseYtDlpProgress, parseBaiduProgress, classifyYtDlpValidate, parseBaiduList } from '../src/core/progress-parser';
 
 describe('parseYtDlpProgress', () => {
   it('parses a download percent line', () => {
@@ -16,6 +16,31 @@ describe('parseBaiduProgress', () => {
   });
   it('returns null when no percent present', () => {
     expect(parseBaiduProgress('preparing upload')).toBeNull();
+  });
+});
+
+describe('parseBaiduList', () => {
+  const sample = `当前目录: /我的音频
+----
+  #    文件大小         修改日期               文件(目录)         
+  0      323.29KB  2026-09-02 15:54:23  Me at the zoo.mp3         
+  19           -  2025-05-29 00:59:28  游戏/
+     总: 323.29KB                       文件总数: 1, 目录总数: 0  
+----`;
+
+  it('parses a file row and a dir row', () => {
+    const files = parseBaiduList(sample);
+    expect(files).toHaveLength(2);
+    expect(files[0]).toEqual({ name: 'Me at the zoo.mp3', size: '323.29KB', date: '2026-09-02 15:54:23', isDir: false });
+    expect(files[1]).toEqual({ name: '游戏', size: '-', date: '2025-05-29 00:59:28', isDir: true });
+  });
+
+  it('returns [] on param error output', () => {
+    expect(parseBaiduList('param error')).toEqual([]);
+  });
+
+  it('returns [] on empty input', () => {
+    expect(parseBaiduList('')).toEqual([]);
   });
 });
 

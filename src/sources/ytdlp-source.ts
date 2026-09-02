@@ -54,7 +54,8 @@ export class YtDlpSource implements VideoSource {
     });
   }
 
-  async download(url: string, onProgress: (pct: number, msg: string) => void): Promise<{ filePath: string; title: string }> {
+  async download(url: string, onProgress: (pct: number, msg: string) => void, format?: string): Promise<{ filePath: string; title: string }> {
+    const fmt = format ?? this.cfg.audio.format;
     const subdir = join(this.cfg.paths.tempDir, `dl-${this.idGen()}`);
     await this.mkdir(subdir);
     try {
@@ -62,7 +63,7 @@ export class YtDlpSource implements VideoSource {
         const template = join(subdir, '%(title)s.%(ext)s');
         const args = [
           '-x',
-          '--audio-format', this.cfg.audio.format,
+          '--audio-format', fmt,
           '--audio-quality', this.cfg.audio.quality,
         ];
         // --ffmpeg-location expects a path/dir; only pass it when the config

@@ -1,7 +1,9 @@
 import { spawn as nodeSpawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import type { CloudUploader } from './cloud-uploader.js';
 import type { AppConfig } from '../core/config.js';
-import { parseBaiduProgress } from '../core/progress-parser.js';
+import type { CloudFile } from '../core/types.js';
+import { parseBaiduProgress, parseBaiduList } from '../core/progress-parser.js';
 
 type SpawnFn = typeof nodeSpawn;
 
@@ -113,6 +115,76 @@ export class BaiduUploader implements CloudUploader {
         // Neither marker present: ambiguous. Reject conservatively to avoid a
         // false success (and subsequent local-file deletion).
         reject(new Error('上传结果未知: ' + out.slice(-200)));
+      });
+    });
+  }
+
+  async list(): Promise<CloudFile[]> {
+    await this.login();
+    return new Promise((resolve, reject) => {
+      const b = this.cfg.cloud.baidu;
+      const p = this.spawnFn(b.binary, ['ls', b.targetDir]);
+      let out = '';
+      let settled = false;
+      p.stdout?.on('data', (d) => (out += d.toString()));
+      p.stderr?.on('data', (d) => (out += d.toString()));
+      p.on('error', (e) => {
+        if (settled) return;
+        settled = true;
+        reject(e);
+      });
+      p.on('close', () => {
+        if (settled) return;
+        settled = true;
+        // A missing dir / param error is not an error for the UI: return empty.
+        if (out.includes('param error') || out.includes('文件不存在')) return resolve([]);
+        resolve(parseBaiduList(out));
+      });
+    });
+  }
+
+  async remove(name: string): Promise<void> {
+    await this.login();
+    return new Promise((resolve, reject) => {
+      const b = this.cfg.cloud.baidu;
+      const p = this.spawnFn(b.binary, ['rm', b.targetDir + '/' + name]);
+      let err = '';
+      let settled = false;
+      p.stderr?.on('data', (d) => (err += d.toString()));
+      p.on('error', (e) => {
+        if (settled) return;
+        settled = true;
+        reject(e);
+      });
+      p.on('close', (code) => {
+        if (settled) return;
+        settled = true;
+        if (code === 0) resolve();
+        else reject(new Error(err || `BaiduPCS-Go rm exited with code ${code}`));
+      });
+    });
+  }
+
+  async fetch(name: string, localDir: string): Promise<string> {
+    await this.login();
+    return new Promise((resolve, reject) => {
+      const b = this.cfg.cloud.baidu;
+      const p = this.spawnFn(b.binary, ['download', b.targetDir + '/' + name, '--saveto', localDir]);
+      let out = '';
+      let settled = false;
+      const localPath = localDir + '/' + name;
+      p.stdout?.on('data', (d) => (out += d.toString()));
+      p.stderr?.on('data', (d) => (out += d.toString()));
+      p.on('error', (e) => {
+        if (settled) return;
+        settled = true;
+        reject(e);
+      });
+      p.on('close', () => {
+        if (settled) return;
+        settled = true;
+        if (out.includes('下载完成') || existsSync(localPath)) resolve(localPath);
+        else reject(new Error('下载失败: ' + out.slice(-200)));
       });
     });
   }

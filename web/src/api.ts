@@ -6,3 +6,14 @@ export async function getCurrent() {
   const res = await fetch('/api/tasks/current');
   return res.json().catch(() => null);
 }
+export async function getFormats() {
+  const res = await fetch('/api/formats');
+  return res.json().catch(() => null);
+}
+export async function getCloudFiles() {
+  const res = await fetch('/api/cloud/files');
+  return res.json().catch(() => ({ targetDir: '', files: [] }));
+}
+export async function deleteCloudFile(name: string) {
+  return post('/api/cloud/delete', { name });
+}

@@ -18,6 +18,13 @@ export interface VideoInfo {
   reason?: string;
 }
 
+export interface CloudFile {
+  name: string;
+  size?: string;
+  date?: string;
+  isDir: boolean;
+}
+
 export interface TaskState {
   taskId: string;
   url: string;

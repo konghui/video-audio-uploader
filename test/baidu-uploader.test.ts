@@ -160,6 +160,111 @@ describe('BaiduUploader.upload', () => {
   });
 });
 
+describe('BaiduUploader.list', () => {
+  const sample = `当前目录: /audio
+----
+  #    文件大小         修改日期               文件(目录)
+  0      323.29KB  2026-09-02 15:54:23  Me at the zoo.mp3
+  19           -  2025-05-29 00:59:28  游戏/
+----`;
+
+  it('logs in first, spawns ls with targetDir, and parses output', async () => {
+    const spawnFn = queue([
+      fakeProc({ code: 0 }), // login
+      fakeProc({ stdout: sample, code: 0 }), // ls
+    ]);
+    const up = new BaiduUploader(cfg, spawnFn as any);
+    const files = await up.list();
+    expect(spawnFn.mock.calls[0]?.[1]?.[0]).toBe('login');
+    expect(spawnFn.mock.calls[1]?.[1]).toEqual(['ls', '/audio']);
+    expect(files).toHaveLength(2);
+    expect(files[0]).toEqual({ name: 'Me at the zoo.mp3', size: '323.29KB', date: '2026-09-02 15:54:23', isDir: false });
+    expect(files[1].isDir).toBe(true);
+    expect(files[1].name).toBe('游戏');
+  });
+
+  it('resolves [] on param error instead of rejecting', async () => {
+    const spawnFn = queue([
+      fakeProc({ code: 0 }),
+      fakeProc({ stdout: 'param error', code: 0 }),
+    ]);
+    const up = new BaiduUploader(cfg, spawnFn as any);
+    await expect(up.list()).resolves.toEqual([]);
+  });
+
+  it('rejects on spawn error during ls', async () => {
+    const spawnFn = queue([
+      fakeProc({ code: 0 }),
+      errorProc(new Error('spawn EACCES')),
+    ]);
+    const up = new BaiduUploader(cfg, spawnFn as any);
+    await expect(up.list()).rejects.toThrow(/EACCES/);
+  });
+});
+
+describe('BaiduUploader.remove', () => {
+  it('logs in first, spawns rm with targetDir/name, resolves on exit 0', async () => {
+    const spawnFn = queue([
+      fakeProc({ code: 0 }), // login
+      fakeProc({ code: 0 }), // rm
+    ]);
+    const up = new BaiduUploader(cfg, spawnFn as any);
+    await up.remove('song.mp3');
+    expect(spawnFn.mock.calls[0]?.[1]?.[0]).toBe('login');
+    expect(spawnFn.mock.calls[1]?.[1]).toEqual(['rm', '/audio/song.mp3']);
+  });
+
+  it('rejects on nonzero exit with stderr', async () => {
+    const spawnFn = queue([
+      fakeProc({ code: 0 }),
+      fakeProc({ stderr: 'no such file', code: 1 }),
+    ]);
+    const up = new BaiduUploader(cfg, spawnFn as any);
+    await expect(up.remove('x.mp3')).rejects.toThrow(/no such file/);
+  });
+
+  it('rejects on spawn error during rm', async () => {
+    const spawnFn = queue([
+      fakeProc({ code: 0 }),
+      errorProc(new Error('spawn EAGAIN')),
+    ]);
+    const up = new BaiduUploader(cfg, spawnFn as any);
+    await expect(up.remove('x.mp3')).rejects.toThrow(/EAGAIN/);
+  });
+});
+
+describe('BaiduUploader.fetch', () => {
+  it('logs in first, spawns download with targetDir/name and --saveto, resolves local path', async () => {
+    const spawnFn = queue([
+      fakeProc({ code: 0 }), // login
+      fakeProc({ stdout: '下载完成, 保存位置: /tmp/song.mp3', code: 0 }), // download
+    ]);
+    const up = new BaiduUploader(cfg, spawnFn as any);
+    const path = await up.fetch('song.mp3', '/tmp');
+    expect(spawnFn.mock.calls[0]?.[1]?.[0]).toBe('login');
+    expect(spawnFn.mock.calls[1]?.[1]).toEqual(['download', '/audio/song.mp3', '--saveto', '/tmp']);
+    expect(path).toBe('/tmp/song.mp3');
+  });
+
+  it('rejects when output indicates no success and file missing', async () => {
+    const spawnFn = queue([
+      fakeProc({ code: 0 }),
+      fakeProc({ stdout: '下载出错', code: 0 }),
+    ]);
+    const up = new BaiduUploader(cfg, spawnFn as any);
+    await expect(up.fetch('nope-xyz.mp3', '/tmp')).rejects.toThrow(/下载失败/);
+  });
+
+  it('rejects on spawn error during download', async () => {
+    const spawnFn = queue([
+      fakeProc({ code: 0 }),
+      errorProc(new Error('spawn ENOENT')),
+    ]);
+    const up = new BaiduUploader(cfg, spawnFn as any);
+    await expect(up.fetch('x.mp3', '/tmp')).rejects.toThrow(/ENOENT/);
+  });
+});
+
 describe('selectUploader', () => {
   it('returns BaiduUploader for baidu provider', () => {
     expect(selectUploader(cfg)).toBeInstanceOf(BaiduUploader);

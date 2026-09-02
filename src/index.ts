@@ -29,7 +29,7 @@ const sessions = new SessionStore();
 const source = selectSource('', cfg);
 const uploader = selectUploader(cfg);
 const runner = new TaskRunner(source, uploader);
-const app = buildServer(cfg, { runner, sessions, validateUrl: (url) => source.validate(url) });
+const app = buildServer(cfg, { runner, sessions, uploader, validateUrl: (url) => source.validate(url) });
 
 const webDist = join(dirname(fileURLToPath(import.meta.url)), '..', 'web', 'dist');
 if (existsSync(webDist)) app.register(fastifyStatic, { root: webDist });
