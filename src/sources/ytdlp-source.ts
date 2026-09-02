@@ -64,11 +64,14 @@ export class YtDlpSource implements VideoSource {
           '-x',
           '--audio-format', this.cfg.audio.format,
           '--audio-quality', this.cfg.audio.quality,
-          '--ffmpeg-location', this.cfg.paths.ffmpeg,
-          '-o', template,
-          '--newline',
-          url,
         ];
+        // --ffmpeg-location expects a path/dir; only pass it when the config
+        // value is an actual path. A bare command name (e.g. "ffmpeg") must be
+        // resolved from PATH by yt-dlp itself, so omit the flag in that case.
+        if (this.cfg.paths.ffmpeg.includes('/')) {
+          args.push('--ffmpeg-location', this.cfg.paths.ffmpeg);
+        }
+        args.push('-o', template, '--newline', url);
         const p = this.spawnFn(this.cfg.paths.ytdlp, args);
         let filePath = '';
         let title = '';
